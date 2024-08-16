@@ -35,6 +35,44 @@ impl<F: PrimeField> Poseidon2<F> {
         return bytesdata;
 
     }
+    pub fn bytes_to_u64_slice(&self,bytes: &[u8]) -> Vec<u64> {
+        let mut padded_bytes = bytes.to_vec();
+        let padding = 8 - (padded_bytes.len() & 7);
+        if padding != 8 {
+            padded_bytes.extend(vec![0; padding]);
+        }
+
+        padded_bytes
+            .chunks_exact(8)
+            .map(|chunk| {
+                let mut array = [0u8; 8];
+                array.copy_from_slice(chunk);
+                u64::from_le_bytes(array)
+            })
+            .collect()
+    }
+    pub fn hash_for_shitable_u8(&self, inputdata: &[u8]) -> Vec<u8> {
+        let input: Vec<F> = self.bytes_to_u64_slice(&inputdata)
+            .into_iter()
+            .map(F::from)
+            .collect();
+        let bytesdata = self.hash_for_shitable(&input);
+
+        let current_state = input.iter().fold(F::zero(), |mut acc, &x| {
+            acc.add_assign(&x);
+            acc
+        });
+        //let mut perm= self.sbox_p(&current_state);
+        let mut perm = current_state;
+        //对 input2 进行平方操作。
+        perm.square_in_place();
+        perm.mul_assign(current_state);
+        //let bigdata = perm.into_bigint().as_mut();
+        let bigdata = perm.into_bigint();
+        let bytesdata=bigdata.to_bytes_le();
+        return bytesdata;
+
+    }
     pub fn permutation(&self, input: &[F]) -> Vec<F> {
         // 获取参数 t
         let t = self.params.t;
@@ -324,16 +362,25 @@ mod poseidon2_tests_goldilocks {
         //打印bytesdata
         println!("{:?}",bytesdata);
 
-        let input: Vec<FpGoldiLocks> = bytes_to_u64_slice(&hashdata)
-            .into_iter()
-            .map(Scalar::from)
-            .collect();
-        let bytesdata = poseidon2.hash_for_shitable(&input);
+    }
+    #[test]
+    fn shitablehashu8(){
+
+        //定义20个字节的数据hashdata
+        let mut hashdata: [u8; 20] = [0; 20];
+        //let mut rng = rand::thread_rng();
+
+        // 为数组中的每个字节赋值为随机数
+        for i in 0..20 {
+            hashdata[i] = (i) as u8;
+        }
+        hashdata[0]=1;
+        let poseidon2 = Poseidon2::new(&POSEIDON2_GOLDILOCKS_8_PARAMS);
+
+        let bytesdata = poseidon2.hash_for_shitable_u8(&hashdata);
 
         //打印bytesdata
         println!("{:?}",bytesdata);
-
-
 
     }
     fn consistent_perm() {

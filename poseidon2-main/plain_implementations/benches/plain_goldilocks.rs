@@ -122,13 +122,32 @@ fn gmimc_opt(c: &mut Criterion) {
         });
     }
 }
+fn hash(c: &mut Criterion) {
+    // 定义20个字节的数据hashdata
+    let mut hashdata: [u8; 20] = [0; 20];
 
+    // 为数组中的每个字节赋值
+    for i in 0..20 {
+        hashdata[i] = i as u8;
+    }
+    hashdata[0] = 1;
+    let poseidon2 = Poseidon2::new(&POSEIDON2_GOLDILOCKS_8_PARAMS);
+
+    c.bench_function("Poseidon2 Goldilocks hash_for_shitable_u8", |bench| {
+        bench.iter(|| {
+            let bytesdata = poseidon2.hash_for_shitable_u8(&hashdata);
+            black_box(bytesdata);
+        });
+    });
+}
 fn criterion_benchmark_plain(c: &mut Criterion) {
+    hash(c);//59.595 ns
     poseidon(c);
     poseidon2(c);
     neptune(c);
     gmimc(c);
     gmimc_opt(c);
+
 }
 
 criterion_group!(
